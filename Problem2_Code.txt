@@ -1,0 +1,154 @@
+import heapq
+import sys
+from collections import deque
+#from typing import List, Tuple
+
+class Edge:
+    class Arc:
+        def __init__(self, from_, to, flow, capacity, cost):
+            self.from_ = from_
+            self.to = to
+            self.flow = flow
+            self.capacity = capacity
+            self.cost = cost
+        # Return the destination node if we were to traverse the arc from vectice X
+        def dest(self, X):
+            if X == self.from_:
+                return self.to
+            else:
+                return self.from_
+        # Adds flow from originating vertice X
+        def flowaddition(self, X, add):
+            if X == self.from_:
+                self.flow += add
+            else:
+                self.flow -= add
+        # Gets the capacity of the edge if the originating vertice is X
+        def Capacity(self, X):
+            if X == self.from_:
+                return self.capacity - self.flow
+            else:
+                return self.flow
+        # Get the cost of the arc if the originating vertex is X
+        def Getcost(self, X):
+            if X == self.from_:
+                return self.cost
+            else:
+                return -self.cost
+
+    class Vertex:
+        def __init__(self, index):
+            self.index = index
+            self.Connected_Arcs = []
+
+    def __init__(self):
+        self.vertices = []
+        self.arcs = []
+    # Add a vertex to the graph
+    def addvertice(self):
+        self.vertices.append(self.Vertex(len(self.vertices)))
+    # Add an edge to the graph
+    def addEdge(self, start, end, flow, capacity, cost):
+        self.arcs.append(self.Arc(start, end, flow, capacity, cost))
+        self.vertices[start].Connected_Arcs.append(self.arcs[-1])
+        self.vertices[end].Connected_Arcs.append(self.arcs[-1])
+        return len(self.arcs) - 1
+    # Successive shortest paths min-cost max-flow algorithm
+    # If there is an initially present cycle with negative costs, the program enters an infinite loop
+    
+    # Print details of the given path
+    def printPathDetails(self, path):
+        reversed_path = reversed(path)
+        for arc in reversed_path:
+            print("Vertex", arc.from_, "to vertex", arc.to, ":", arc.flow, "/", arc.capacity, "with cost", arc.cost)
+
+    # Apply Bellman–Ford to calculate the potentials
+    def min_costflow(self, source, sink):
+        result = 0
+
+        potentials = [sys.maxsize] * len(self.vertices)
+        front = deque([(0, source)])
+
+        while front:
+            potential, cur = front.popleft()
+            if potential >= potentials[cur]:
+                continue
+            potentials[cur] = potential
+            for arc in self.vertices[cur].Connected_Arcs:
+                if arc.Capacity(cur) > 0:
+                    # If there is some remaining capacity, continue to traverse the arc
+                    front.append((potential + arc.Getcost(cur), arc.dest(cur)))
+        # Apply Dijkstra algorithm
+        while True:
+            frontier = []
+            explr = [False] * len(self.vertices)
+ 
+            Cost_to_vertice = [-1] * len(self.vertices)
+            Arcused = [None] * len(self.vertices)
+            
+            frontier.append((0, source, None),)
+            while frontier:
+                Pathcost, cur, CurrentUsed_Arc = frontier.pop(0)
+                Pathcost = -Pathcost
+               
+                if not explr[cur]:
+                    explr[cur] = True
+                    Arcused[cur] = CurrentUsed_Arc
+                    Cost_to_vertice[cur] = Pathcost
+                    for arc in self.vertices[cur].Connected_Arcs:
+                        if arc.Capacity(cur) > 0:
+                            # Subtract the difference of potentials from the arc cost to ensure all arcs have positive cost
+                            next_i = arc.dest(cur)
+                            frontier.append(( -Pathcost - (arc.Getcost(cur) - potentials[next_i] + potentials[cur]), next_i, arc))
+                            frontier.sort(key=lambda x: x[0], reverse=True)
+            # We cannot find a path, return
+            if Arcused[sink] is None:
+                return result
+
+            arcs = []
+            pushedflow = sys.maxsize
+            # Build the path from source to sink
+            cur = sink
+
+            while cur != source:
+                arc = Arcused[cur]
+                cur = arc.dest(cur)
+ 
+                pushedflow = min(pushedflow, arc.Capacity(cur))
+                arcs.append(arc)
+
+            for arc in reversed(arcs):
+                arc.flowaddition(cur, pushedflow)
+                result += arc.Getcost(cur) * pushedflow
+                cur = arc.dest(cur)
+            # Print details of the given path
+            print("Shortest Path details:")
+            self.printPathDetails(arcs)
+
+            for i in range(len(self.vertices)):
+                if Cost_to_vertice[i] != -1:
+                    potentials[i] += Cost_to_vertice[i]
+
+graph = Edge()
+#Build the graph with 7 vertices
+for i in range(7):
+    graph.addvertice()
+
+graph.addEdge(0, 1, 0, 4, 1)
+graph.addEdge(0, 3, 0, 2, 5)
+graph.addEdge(1, 2, 0, 2, 1)
+graph.addEdge(1, 3, 0, 6, 1)
+graph.addEdge(2, 1, 0, 2, 1)
+graph.addEdge(2, 5, 0, 4, 2)
+graph.addEdge(3, 4, 0, 8, 1)
+graph.addEdge(4, 2, 0, 6, 3)
+graph.addEdge(4, 5, 0, 4, 1)
+graph.addEdge(5, 6, 0, 4, 3)
+graph.addEdge(4, 6, 0, 6, 2)
+
+source = 0
+sink = 6
+#Find the shortest path with the maximum flow from 0 to 6
+result = graph.min_costflow(source, sink)
+
+print("\nMaximum flow value from", source ,"to",sink, ":" ,result)
